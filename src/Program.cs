@@ -12,7 +12,7 @@ var (command, param) = args.Length switch
 if (command == "decode")
 {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
-    Console.WriteLine("Logs from your program will appear here!");
+    // Console.WriteLine("Logs from your program will appear here!");
 
     // Uncomment this line to pass the first stage
     var encodedValue = param;
@@ -30,6 +30,11 @@ if (command == "decode")
         {
             throw new InvalidOperationException("Invalid encoded value: " + encodedValue);
         }
+    }
+    else if (Char.IsAsciiLetter(encodedValue[0]) && Char.IsAsciiLetter(encodedValue[^1])) // returns false for capital letters as well
+    {
+        // Example: i52e
+        Console.WriteLine(JsonSerializer.Serialize(Int128.Parse(encodedValue[1..^1])));
     }
     else
     {
