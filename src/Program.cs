@@ -17,6 +17,10 @@ if (command == "decode")
     
     Console.WriteLine(JsonSerializer.Serialize(Bencode.Decode(encodedValue)));
 }
+else if (command == "info")
+{
+
+}
 else
 {
     throw new InvalidOperationException($"Invalid command: {command}");

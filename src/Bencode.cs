@@ -10,57 +10,37 @@ namespace codecrafters_bittorrent.src
     {
         public static object Decode(string input)
         {
-            return input[0] switch
+            var index = 0;
+            return DecodeBencode(input, ref index);
+        }
+
+        private static object DecodeBencode(string input, ref int index)
+        {
+            return input[index] switch
             {
-                var c when Char.IsDigit(c) => DecodeString(input),
-                'i' => DecodeInt(input),
-                'l' => DecodeList(input),
-                'd' => DecodeDictionary(input),
-                _ => throw new InvalidOperationException($"Could not decode {input}")
+                var c when Char.IsDigit(c) => DecodeString(input, ref index),
+                'i' => DecodeInt(input, ref index),
+                'l' => DecodeList(input, ref index),
+                'd' => DecodeDictionary(input, ref index),
+                _ => throw new InvalidOperationException($"Could not decode {input} - char: {input[index]}")
             };
         }
 
-        public static string Encode(object input)
+        private static string DecodeString(string input, ref int index) // EX: 5:hello
         {
-            return input switch
-            {
-                long n => $"i{n}e",
-
-                string s => $"{s.Length}:{s}",
-
-                object[] arr => $"l{string.Join("", arr.Select(Encode))}e",
-
-                object obj => EncodeNonPrimitiveType(input),
-
-                _ => throw new Exception($"Unknown type: {input.GetType().FullName}")
-            };
-        }
-
-        private static string EncodeNonPrimitiveType(object input) 
-        {
-            if (input is object[] inputArray)
-            {
-                return $"l{string.Join("", inputArray.Select(x => Encode(x)))}e";
-            }
-            else if (input is Dictionary<string, object> inputDictionary)
-            {
-                return $"d{string.Join("", inputDictionary.Values.Select(x => Encode(x)))}e";
-            }
-            else
-            {
-                throw new Exception($"Unknown type: {input.GetType().FullName}");
-            }
-        }
-
-        private static string DecodeString(string input)
-        {
-            int colonIndex = input.IndexOf(':');
+            int colonIndex = input.IndexOf(':', index);
 
             if (colonIndex != -1)
             {
-                var strlen = int.Parse(input[..colonIndex]);
+                var strlen = int.Parse(input[index..colonIndex]);
 
-                return input.Substring(colonIndex + 1, strlen);
+                index = colonIndex + 1;
+
+                var strValue = input.Substring(index, strlen);
+
+                index += strlen;
+
+                return strValue;
             }
             else
             {
@@ -68,47 +48,49 @@ namespace codecrafters_bittorrent.src
             }
         }
 
-        private static long DecodeInt(string input) => long.Parse(input[1..input.IndexOf('e')]); // EX i52e
-
-        private static object[] DecodeList(string input) // EX: l5:helloi52ee
+        private static long DecodeInt(string input, ref int index) // EX i52e
         {
-            //trim 'l'
-            input = input[1..];
+            index++; //skipping i
+            int endIndex = input.IndexOf("e", index);
+            string numStr = input.Substring(index, endIndex - index);
+            index = endIndex + 1;
+            return long.Parse(numStr); 
+        }
 
+        private static object[] DecodeList(string input, ref int index) // EX: l5:helloi52ee
+        {
             var result = new List<object>();
+            
+            index++; //skipping l
+
 
             //iterate while trimming input. ends when we hit 'e' which should be end...
-            while (input.Length > 0 && input[0] != 'e')
+            while (input[index] != 'e')
             {
-                var element = Decode(input);
-
-                result.Add(element);
-
-                input = input[Encode(element).Length..];
+                result.Add(DecodeBencode(input, ref index));
             }
+
+            index++; //skipping e
             
             return [.. result];
         }
 
-        private static Dictionary<string, object> DecodeDictionary(string input) // EX d<key1><value1>...<keyN><valueN>e
+        private static Dictionary<string, object> DecodeDictionary(string input, ref int index) // EX d<key1><value1>...<keyN><valueN>e
         {
             // key is always string, value could be anything...
-            //trim d
-            input = input[1..];
-
             var result = new Dictionary<string, object>();
 
-            while(input.Length > 0 && input[0] != 'e')
+            index++; //skipping d
+
+
+            while(input[index] != 'e')
             {
-                var key = DecodeString(input);
+                var key = DecodeString(input, ref index);
 
-                input = input[Encode(key).Length..];
-
-                var value = Decode(input);
+                var value = DecodeBencode(input, ref index);
 
                 result.Add(key, value);
 
-                input = input[Encode(key).Length..];
             }
 
             return result;
